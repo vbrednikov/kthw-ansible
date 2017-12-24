@@ -1,0 +1,52 @@
+- name: Create installation directories
+  become: yes
+  become_user: root
+  file:
+    name: "{{ item }}"
+    state: directory
+    mode: 0755
+  with_items:
+    - /etc/cni/net.d
+    - /opt/cni/bin
+    - /var/lib/kubelet
+    - /var/lib/kube-proxy
+    - /var/lib/kubernetes
+    - /var/run/kubernetes
+
+- name: Install cni plugins
+  become: yes
+  become_user: root
+  unarchive:
+    src:  https://github.com/containernetworking/plugins/releases/download/v0.6.0/cni-plugins-amd64-v0.6.0.tgz
+    dest: /opt/cni/bin/
+    remote_src: yes
+    list_files: yes
+    creates: /opt/cni/bin/flannel
+  register: cni_plugins
+
+- debug: msg="{{ cni_plugins }}"
+
+- name: Install cri-containerd
+  become: yes
+  become_user: root
+  unarchive:
+    src: https://github.com/kubernetes-incubator/cri-containerd/releases/download/v1.0.0-alpha.0/cri-containerd-1.0.0-alpha.0.tar.gz
+    dest: /
+    remote_src: yes
+    list_files: yes
+    creates: /usr/local/bin/containerd-stress
+  register: cri_containerd
+
+- debug: msg="{{ cri_containerd }}"
+
+- name: Download Worker Binaries to /usr/local/bin
+  become: yes
+  become_user: root
+  get_url:
+    url: "{{ item.url }}"
+    dest: "/usr/local/bin/{{ item.dest }}"
+    mode: 0755
+  with_items:
+  - { url: "https://storage.googleapis.com/kubernetes-release/release/v1.8.0/bin/linux/amd64/kubectl", dest: "kubectl" }
+  - { url: "https://storage.googleapis.com/kubernetes-release/release/v1.8.0/bin/linux/amd64/kube-proxy", dest: "kube-proxy" }
+  - { url: "https://storage.googleapis.com/kubernetes-release/release/v1.8.0/bin/linux/amd64/kubelet", dest: "kubelet" }

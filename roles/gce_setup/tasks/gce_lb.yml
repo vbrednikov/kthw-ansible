@@ -1,0 +1,16 @@
+---
+
+- name: The Kubernetes Frontend Load Balancer
+  vars:
+    backends: "{{ controllers.instance_names }}"
+  gce_lb:
+    service_account_email: "{{ service_account_email }}"
+    credentials_file: "{{ credentials_file }}"
+    region: "{{ region }}"
+    project_id: "{{ project_id }}"
+    name: kubernetes-target-pool
+    port_range: "6443"
+    members: "{{ backends | map('regex_replace','^(.*)$', zone + '/\\1') | list }}"
+    external_ip: "kubernetes-the-hard-way"
+
+ #     - debug: msg="{{ vars.groups.tag_controller | map('regex_replace','^(.*)$','europe-west1-b/\\1') |list }}"

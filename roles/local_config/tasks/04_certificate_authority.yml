@@ -1,0 +1,87 @@
+- name: prepare cfssl configs
+  tags:
+    - pki_templates
+  template:
+    src: "{{ item }}.json.j2"
+    dest: "{{ pki_dir }}/{{ item }}.json"
+  with_items:
+    - admin-csr
+    - ca-config
+    - ca-csr
+    - kube-proxy-csr
+    - kubernetes-csr
+
+- name: Generate CA certificate and private key
+  tags:
+    - pki_ca
+  shell: "cfssl gencert -initca ca-csr.json | cfssljson -bare ca"
+  args:
+    chdir: "{{ pki_dir }}"
+    creates: ca-key.pem
+
+- name: Generate admin client certificate and private key
+  tags:
+    - pki_admin
+  shell: |
+    cfssl gencert \
+    -ca=ca.pem \
+    -ca-key=ca-key.pem \
+    -config=ca-config.json \
+    -profile=kubernetes \
+      admin-csr.json | cfssljson -bare admin
+  args:
+    chdir: "{{ pki_dir }}"
+    creates: admin-key.pem
+
+#- debug:
+#    msg: "{{ vars }}"
+
+- name: Generate a certificate and private key for each Kubernetes worker node
+  tags:
+    - pki_worker
+  include_tasks: worker.yml worker_name="{{ item }}" worker_public_ip="{{ hostvars[item].gce_public_ip }}" worker_private_ip="{{ hostvars[item].gce_private_ip }}"
+  #debug:
+    #msg: "worker_name={{ item }} worker_public_ip={{ hostvars.gce_public_ip }}"
+  #  msg: "{{ hostvars[item].gce_private_ip }}"
+  with_items: "{{ groups.tag_worker }}"
+
+
+
+- name: Generate kube-proxy client certificate
+  tags: pki_kube_proxy
+  shell: |
+    cfssl gencert \
+    -ca=ca.pem \
+    -ca-key=ca-key.pem \
+    -config=ca-config.json \
+    -profile=kubernetes \
+     kube-proxy-csr.json | cfssljson -bare kube-proxy
+  args:
+    chdir: "{{ pki_dir }}"
+    creates: kube-proxy-key.pem
+
+# TODO: execute only when kubernetes-key.pem does not exist
+- name: Generate comma-separated list of controllers internal IPs
+  tags: pki_kube_proxy
+  include_tasks: controller_iplist.yml
+
+# # cfssl gencert \
+# #   -ca=ca.pem \
+# #   -ca-key=ca-key.pem \
+# #   -config=ca-config.json \
+# #   -hostname=10.32.0.1,10.240.0.10,10.240.0.11,10.240.0.12,${KUBERNETES_PUBLIC_ADDRESS},127.0.0.1,kubernetes.default \
+# #   -profile=kubernetes \
+# #   kubernetes-csr.json | cfssljson -bare kubernetes
+- name: Generate the Kubernetes API Server certificate and private key
+  tags: pki_kube_proxy
+  shell: |
+   cfssl gencert \
+      -ca=ca.pem \
+      -ca-key=ca-key.pem \
+      -config=ca-config.json \
+      -hostname="{{ controller_iplist | replace (' ','')}}" \
+      -profile=kubernetes \
+      kubernetes-csr.json | cfssljson -bare kubernetes
+  args:
+    chdir: "{{ pki_dir }}"
+    creates: kubernetes-key.pem

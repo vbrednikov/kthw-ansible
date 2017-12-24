@@ -1,0 +1,63 @@
+- name: Create GCE network
+  gce_net:
+    name: kubernetes-the-hard-way
+    service_account_email: "{{ service_account_email }}"
+    credentials_file: "{{ credentials_file }}"
+    subnet_region: "{{ region }}"
+    project_id: "{{ project_id }}"
+    mode: custom
+    subnet_name: kubernetes
+    ipv4_range: 10.240.0.0/24
+    state: present
+
+# gcloud compute firewall-rules create kubernetes-the-hard-way-allow-internal \
+#   --allow tcp,udp,icmp \
+#   --network kubernetes-the-hard-way \
+#   --source-ranges 10.240.0.0/24,10.200.0.0/16
+
+# gcloud compute firewall-rules list --filter "network: kubernetes-the-hard-way"
+
+- name: Create internal firewall rules
+  gce_net:
+    service_account_email: "{{ service_account_email }}"
+    credentials_file: "{{ credentials_file }}"
+    project_id: "{{ project_id }}"
+
+    name: kubernetes-the-hard-way
+    fwname: kubernetes-the-hard-way-allow-internal
+    allowed: tcp;udp;icmp
+    src_range:
+      - 10.240.0.0/24
+      - 10.200.0.0/16
+    state: present
+
+# gcloud compute firewall-rules create kubernetes-the-hard-way-allow-external \
+#   --allow tcp:22,tcp:6443,icmp \
+#   --network kubernetes-the-hard-way \
+#   --source-ranges 0.0.0.0/0
+- name: Create external firewall rules
+  gce_net:
+    service_account_email: "{{ service_account_email }}"
+    credentials_file: "{{ credentials_file }}"
+    project_id: "{{ project_id }}"
+    name: kubernetes-the-hard-way
+    fwname: kubernetes-the-hard-way-allow-external
+    allowed: tcp:22;tcp:6443;icmp
+    src_range:
+      - 0.0.0.0/0
+    state: present
+
+# gcloud compute addresses create kubernetes-the-hard-way \
+#   --region $(gcloud config get-value compute/region)
+
+# gcloud compute addresses list --filter="name=('kubernetes-the-hard-way')"
+
+- name: Create external IP
+  gce_eip:
+    service_account_email: "{{ service_account_email }}"
+    credentials_file: "{{ credentials_file }}"
+    project_id: "{{ project_id }}"
+    name: kubernetes-the-hard-way
+    region: "{{ region }}"
+    state: present
+  register: kubernetes_eip

@@ -1,0 +1,23 @@
+---
+- shell: |
+    gcloud compute addresses describe kubernetes-the-hard-way \
+    --region $(gcloud config get-value compute/region) \
+    --format 'value(address)'
+  register: eip
+
+- debug: msg="{{ eip.stdout_lines[0] }}"
+
+- shell: |
+    kubectl config set-cluster kubernetes-the-hard-way \
+      --certificate-authority=ca.pem \
+      --embed-certs=true \
+      --server=https://{{eip.stdout_lines[0] }}:6443
+    kubectl config set-credentials admin \
+      --client-certificate=admin.pem \
+      --client-key=admin-key.pem
+    kubectl config set-context kubernetes-the-hard-way \
+      --cluster=kubernetes-the-hard-way \
+      --user=admin
+    kubectl config use-context kubernetes-the-hard-way
+  args:
+    chdir: .pki

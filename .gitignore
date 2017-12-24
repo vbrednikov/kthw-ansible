@@ -1,0 +1,5 @@
+*.retry
+*.pyc
+gce.ini
+.pki
+private-vars.yml

@@ -1,0 +1,17 @@
+{
+  "CN": "admin",
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "{{ pki_c }}",
+      "L": "{{ pki_l }}",
+      "ST": "{{ pki_st }}",
+
+      "O": "system:masters",
+      "OU": "Kubernetes The Hard Way"
+    }
+  ]
+}

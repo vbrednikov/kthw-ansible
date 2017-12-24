@@ -1,0 +1,74 @@
+---
+- name: ca dir
+  file:
+    path: pki
+    state: directory
+
+- name: prepare cfssl configs
+  template:
+    src: "{{ item }}.json.j2"
+    dest: "pki/{{ item }}.json"
+  with_items:
+    - admin-csr
+    - ca-config
+    - ca-csr
+    - kube-proxy-csr
+    - kubernetes-csr
+
+- name: Generate CA certificate and private key
+  shell: "cfssl gencert -initca ca-csr.json | cfssljson -bare ca"
+  args:
+    chdir: pki
+    creates: ca-key.pem
+
+- name: Generate admin client certificate and private key
+  shell: |
+    cfssl gencert \
+    -ca=ca.pem \
+    -ca-key=ca-key.pem \
+    -config=ca-config.json \
+    -profile=kubernetes \
+      admin-csr.json | cfssljson -bare admin
+  args:
+    chdir: pki
+    creates: admin-key.pem
+
+- name: Generate a certificate and private key for each Kubernetes worker node
+  include: worker.yml name="{{ item.name }}"
+  with_items: "{{ workers.results }}"
+
+
+- name: Generate kube-proxy client certificate
+  shell: |
+    cfssl gencert \
+    -ca=ca.pem \
+    -ca-key=ca-key.pem \
+    -config=ca-config.json \
+    -profile=kubernetes \
+      kube-proxy-csr.json | cfssljson -bare kube-proxy
+  args:
+    chdir: pki
+    creates: kube-proxy-key.pem
+
+# cfssl gencert \
+#   -ca=ca.pem \
+#   -ca-key=ca-key.pem \
+#   -config=ca-config.json \
+#   -hostname=10.32.0.1,10.240.0.10,10.240.0.11,10.240.0.12,${KUBERNETES_PUBLIC_ADDRESS},127.0.0.1,kubernetes.default \
+#   -profile=kubernetes \
+#   kubernetes-csr.json | cfssljson -bare kubernetes
+- name: Generate the Kubernetes API Server certificate and private key
+  vars:
+    controllers_int_list: "{{ controllers | json_query('instance_data[*].private_ip') | join (',') }}"
+  shell: |
+   cfssl gencert \
+      -ca=ca.pem \
+      -ca-key=ca-key.pem \
+      -config=ca-config.json \
+      -hostname=10.32.0.1,{{ controllers_int_list }},{{ kubernetes_eip.address }},127.0.0.1,kubernetes.default \
+      -profile=kubernetes \
+      kubernetes-csr.json | cfssljson -bare kubernetes
+  args:
+    chdir: pki
+    creates: kubernetes-key.pem
+

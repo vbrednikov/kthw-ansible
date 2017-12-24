@@ -1,0 +1,103 @@
+---
+# https://github.com/kelseyhightower/kubernetes-the-hard-way/blob/master/docs/07-bootstrapping-etcd.md
+# wget -q --show-progress --https-only --timestamping \
+#  "https://github.com/coreos/etcd/releases/download/v3.2.8/etcd-v3.2.8-linux-amd64.tar.gz"
+
+# http://docs.ansible.com/ansible/latest/unarchive_module.html
+
+- name: Download and Install the etcd Binaries
+  tags: etcd
+  unarchive:
+    src: https://github.com/coreos/etcd/releases/download/v3.2.8/etcd-v3.2.8-linux-amd64.tar.gz
+    validate_certs: yes
+    dest: ~/
+    remote_src: yes
+    creates: etcd-v3.2.8-linux-amd64
+    exclude:
+      - Documentation
+
+- name: "Copy etcd* to /usr/local/bin"
+  tags: etcd
+  become: yes
+  become_user: root
+  copy:
+    src: "etcd-v3.2.8-linux-amd64/{{ item }}"
+    dest: /usr/local/bin
+    owner: "root"
+    mode: 0755
+    remote_src: yes
+  with_items:
+    - etcd
+    - etcdctl
+
+- name: Create etcd dirs
+  tags: etcd_config
+  become: true
+  become_user: root
+  file:
+    path: "{{ item }}"
+    state: directory
+    # TODO: try to harden mode
+    mode: 0755
+  with_items:
+    - /etc/etcd
+    - /var/lib/etcd
+
+- name: upload certs to /etc/etcd
+  tags: etcd_config
+  become: true
+  become_user: root
+  notify: restart etcd
+  copy:
+    src: ".pki/{{ item }}"
+    dest: "/etc/etcd/{{ item }}"
+  with_items:
+    - ca.pem
+    - kubernetes-key.pem
+    - kubernetes.pem
+
+
+- set_fact:
+    url_list: []
+  tags: etcd_systemd_config
+- with_items: "{{ groups.tag_controller }}"
+  tags: etcd_systemd_config
+
+  vars:
+    url:
+      - " {{ '%s=https://%s:2380' | format(item, hostvars[item].gce_private_ip) }}"
+  set_fact:
+    url_list: "{{ url_list }} + {{ url }}"
+
+# - debug: msg="{{ url_list }}"
+#   tags: etcd_systemd_config
+
+- name: Install systemd etcd.service
+  tags: etcd_systemd_config
+  become: true
+  become_user: root
+  vars:
+    etcd_name: "{{ ansible_hostname }}"
+    internal_ip: "{{ gce_private_ip }}"
+    controller_list: "{{ url_list }}"
+  template:
+    src: etcd.service.j2
+    dest: /etc/systemd/system/etcd.service
+    group: 0
+    owner: 0
+    mode: 644
+  notify: restart etcd
+
+- name: Start etcd.service
+  tags: etcd_systemd_config
+  become: true
+  become_user: root
+  systemd: name=etcd enabled=yes state=started
+
+- name: "Check cluster members"
+  tags: k8s_cluster_show
+  shell: "ETCDCTL_API=3 etcdctl member list"
+  register: ccc
+
+- tags: k8s_cluster_show
+  debug: msg="{{ ccc.stdout_lines }}"

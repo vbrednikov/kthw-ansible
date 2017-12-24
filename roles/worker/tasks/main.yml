@@ -1,0 +1,69 @@
+---
+# tasks file for worker
+
+- name: install socat
+  become: yes
+  become_user: root
+  apt: name=socat state=present
+
+- include_tasks: worker_binaries.yml
+
+- name: Upload certificates and configs
+  become: true
+  become_user: root
+  copy:
+    src: "{{ pki_dir }}/{{ item.name }}"
+    dest: "{{ item.dest }}"
+  with_items:
+    - { name: ca.pem, dest: /var/lib/kubernetes/ }
+    - { name: "{{ inventory_hostname }}.pem", dest: /var/lib/kubelet }
+    - { name: "{{ inventory_hostname }}-key.pem", dest: /var/lib/kubelet }
+    - { name: "{{ inventory_hostname }}.kubeconfig", dest: /var/lib/kubelet/kubeconfig }
+    - { name: kube-proxy.kubeconfig, dest: /var/lib/kube-proxy/kubeconfig }
+
+- name: cni network config
+  become: yes
+  become_user: root
+  template:
+    src: "{{ item }}.j2"
+    dest: "/etc/cni/net.d/{{ item }}"
+    mode: 0644
+  vars:
+    pod_cidr: "{{ gce_metadata['pod-cidr'] | replace(' ','')}}"
+  with_items:
+    - 10-bridge.conf
+    - 99-loopback.conf
+
+- name: install systemd kubelet service
+  become: yes
+  become_user: root
+  vars:
+    pod_cidr: "{{ gce_metadata['pod-cidr'] }}"
+    hostname: "{{ inventory_hostname }}"
+    dns_ip: "{{ hostvars[groups.tag_controller.0].gce_private_ip }}"
+  template:
+    src: kubelet.service.j2
+    dest: /etc/systemd/system/kubelet.service
+    mode: 0644
+  notify: restart kubelet
+
+- name: install systemd kube-proxy service
+  become: yes
+  become_user: root
+  template:
+    src: kube-proxy.service.j2
+    dest: /etc/systemd/system/kube-proxy.service
+    mode: 0644
+  notify: restart kube-proxy
+
+- name: Enable and start services
+  tags: systemd_config
+  become: true
+  become_user: root
+  systemd: name="{{ item }}" enabled=yes state=started
+  with_items:
+    - kubelet
+    - kube-proxy
+    - containerd
+
+

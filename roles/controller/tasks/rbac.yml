@@ -1,0 +1,18 @@
+---
+- debug: msg="configure rbac on {{ ansible_hostname }}"
+
+- name: upload "{{ item }}" to "{{ ansible_hostname }}"
+  copy:
+    src: "{{ item }}"
+    dest: "/tmp/{{ item }}"
+    mode: 0644
+  with_items:
+    - kube_cluster_role.txt
+    - kube_cluster_role_binding.txt
+
+- name: "apply role settings from {{ item }} on {{ ansible_hostname }}"
+  shell: kubectl apply -f "/tmp/{{ item }}"
+  with_items:
+    - kube_cluster_role.txt
+    - kube_cluster_role_binding.txt
+  register: rrr

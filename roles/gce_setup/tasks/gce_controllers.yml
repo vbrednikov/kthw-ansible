@@ -1,0 +1,47 @@
+---
+
+# for i in 0 1 2; do
+#   gcloud compute instances create controller-${i} \
+#     --async \
+#     --boot-disk-size 200GB \
+#     --can-ip-forward \
+#     --image-family ubuntu-1604-lts \
+#     --image-project ubuntu-os-cloud \
+#     --machine-type n1-standard-1 \
+#     --private-network-ip 10.240.0.1${i} \
+#     --scopes compute-rw,storage-ro,service-management,service-control,logging-write,monitoring \
+#     --subnet kubernetes \
+#     --tags kubernetes-the-hard-way,controller
+# done
+- name: Create kubernetes controller instances
+  gce:
+    service_account_email: "{{ service_account_email }}"
+    credentials_file: "{{ credentials_file }}"
+    project_id: "{{ project_id }}"
+    zone: "{{ zone }}"
+    instance_names: controller-0,controller-1,controller-2
+    num_instances: 3
+    machine_type: n1-standard-1
+    image_family: ubuntu-1604-lts
+  #  external_projects: "[ubuntu-os-cloud]"
+    ip_forward: true
+    disk_size: "{{ disk_size }}"
+    network: kubernetes-the-hard-way
+    subnetwork: kubernetes
+    state: present
+    tags: kubernetes-the-hard-way,controller
+    service_account_permissions:
+      - compute-rw
+      - storage-ro
+      - service-management
+      - service-control
+      - logging-write
+      - monitoring
+  register: controllers
+
+
+# - name: Register controller hosts in in-memory inventory
+#   add_host:
+#     name: "{{ item.public_ip }}"
+#     group: "controllers"
+#   with_items: "{{ controllers.instance_data }}"

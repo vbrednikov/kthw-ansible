@@ -1,0 +1,24 @@
+---
+
+- hosts: tag_controller
+  tags:
+    - controller
+  roles:
+    - controller
+
+# TODO: verify https://github.com/kelseyhightower/kubernetes-the-hard-way/blob/1.8.0/docs/08-bootstrapping-kubernetes-controllers.md#verification-1
+
+- hosts: tag_worker
+  tags:
+    - worker
+  roles:
+    - worker
+
+- hosts: tag_controller
+  tags:
+    - worker
+  tasks:
+    - shell: "kubectl get nodes"
+      register: kube_wnodes
+
+    - debug: msg="{{ kube_wnodes.stdout_lines }}"

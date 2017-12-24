@@ -1,0 +1,23 @@
+---
+- shell: |
+    gcloud compute addresses describe kubernetes-the-hard-way \
+    --region $(gcloud config get-value compute/region) \
+    --format 'value(address)'
+  register: eip_shell
+
+- debug:
+    msg: "{{ eip_shell.stdout_lines[0] }}"
+
+- set_fact:
+    controller_iplist_intermediate:
+      - 10.32.0.1
+      - 127.0.0.1
+      - "{{ eip_shell.stdout_lines[0] }}"
+      - kubernetes.default
+
+- include_tasks: controller_iplist_incl.yml ip="{{ hostvars[item].gce_private_ip }} "
+  with_items: "{{ groups.tag_controller }}"
+
+- set_fact:
+    controller_iplist: "{{ controller_iplist_intermediate | join(',') }} "
+

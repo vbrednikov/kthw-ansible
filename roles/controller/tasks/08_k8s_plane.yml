@@ -1,0 +1,35 @@
+---
+- name: Download the Kubernetes Controller Binaries
+  become: yes
+  become_user: root
+  include_tasks: wget.yml url="{{ item.url }}" dest="{{ item.dest }}"
+  with_items:
+    - { url: "https://storage.googleapis.com/kubernetes-release/release/v1.8.0/bin/linux/amd64/kube-apiserver", dest: "kube-apiserver" }
+    - { url: "https://storage.googleapis.com/kubernetes-release/release/v1.8.0/bin/linux/amd64/kube-controller-manager", dest: "kube-controller-manager" }
+    - { url: "https://storage.googleapis.com/kubernetes-release/release/v1.8.0/bin/linux/amd64/kube-scheduler", dest: "kube-scheduler" }
+    - { url: "https://storage.googleapis.com/kubernetes-release/release/v1.8.0/bin/linux/amd64/kubectl", dest: "kubectl" }
+
+- name: Create /var/lib/kubernetes
+  become: true
+  become_user: root
+  file:
+    path: "/var/lib/kubernetes"
+    state: directory
+    # TODO: try to harden mode
+    mode: 0755
+
+- name: copy files to /var/lib/kubernetes
+  become: true
+  become_user: root
+  copy:
+    src: "{{ pki_dir }}/{{ item }}"
+    dest: /var/lib/kubernetes
+    mode: 0600
+  with_items:
+    - ca.pem
+    - ca-key.pem
+    - kubernetes-key.pem
+    - kubernetes.pem
+    - encryption-config.yaml
+
+

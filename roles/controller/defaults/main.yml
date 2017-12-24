@@ -1,0 +1,3 @@
+---
+# defaults file for controller
+pki_dir: ".pki"

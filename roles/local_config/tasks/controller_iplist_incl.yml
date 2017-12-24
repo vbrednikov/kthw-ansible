@@ -1,0 +1,8 @@
+
+- set_fact:
+    tmpvar:
+      - "{{ ip | trim }}"
+
+- set_fact:
+    controller_iplist_intermediate: "{{ controller_iplist_intermediate + tmpvar }}"
+

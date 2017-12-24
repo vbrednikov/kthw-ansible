@@ -1,0 +1,16 @@
+---
+# extremely ugly module
+- shell: |
+    gcloud compute routes list --filter "network: kubernetes-the-hard-way" --format "value(name)"| \
+    grep kubernetes-route|xargs -n 1 gcloud compute routes delete
+  name: delete previous routes
+
+- with_items: "{{ groups['tag_worker'] }}"
+  vars:
+    pod_cidr: "{{ hostvars[item].gce_metadata['pod-cidr'] }}"
+    ip: "{{ hostvars[item].gce_private_ip }}"
+  shell: |
+    gcloud compute routes create kubernetes-route-{{ pod_cidr | replace('.','-') | replace('/','-') }} \
+    --network kubernetes-the-hard-way \
+    --next-hop-address {{ ip }} \
+    --destination-range {{ pod_cidr }}

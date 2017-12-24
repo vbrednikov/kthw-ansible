@@ -1,0 +1,17 @@
+---
+# handlers file for worker
+- name: restart kubelet
+  become: true
+  become_user: root
+  systemd:
+    name: kubelet
+    daemon-reload: true
+    state: restarted
+
+- name: restart kube-proxy
+  become: true
+  become_user: root
+  systemd:
+    name: kube-proxy
+    daemon-reload: true
+    state: restarted

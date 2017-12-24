@@ -1,0 +1,13 @@
+---
+- debug:
+    msg: "get {{ url }} to {{ dest }}"
+
+- name: get file
+  get_url:
+    url: "{{ url }}"
+    dest: "~/bin/{{ dest }}"
+
+- name: set executable 
+  file:
+    path: "~/bin/{{ dest }}"
+    mode: 0755

@@ -1,0 +1,8 @@
+---
+- name: download executables
+  tags: local_wget
+  include_tasks: wget.yml url="{{ item.url }}" dest="{{ item.dest }}"
+  with_items:
+  - { url: "https://pkg.cfssl.org/R1.2/cfssl_darwin-amd64", dest: "cfssl" }
+  - { url: "https://pkg.cfssl.org/R1.2/cfssljson_darwin-amd64", dest: "cfssljson" }
+  - { url: "https://storage.googleapis.com/kubernetes-release/release/v1.8.0/bin/darwin/amd64/kubectl", dest: "kubectl" }

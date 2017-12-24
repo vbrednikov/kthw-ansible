@@ -1,0 +1,9 @@
+---
+- debug:
+    msg: "get {{ url }} to {{ dest }}"
+
+- name: get file
+  get_url:
+    url: "{{ url }}"
+    dest: "/usr/local/bin/{{ dest }}"
+    mode: 0755

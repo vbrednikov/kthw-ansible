@@ -1,0 +1,26 @@
+---
+# handlers file for controller
+- name: restart etcd
+  become: true
+  systemd: name=etcd state=restarted
+
+- name: restart apiserver
+  become: true
+  systemd:
+    name: kube-apiserver
+    daemon-reload: true
+    state: restarted
+
+- name: restart controller manager
+  become: true
+  systemd:
+    name: kube-controller-manager
+    daemon-reload: true
+    state: restarted
+
+- name: restart scheduler
+  become: true
+  systemd:
+    name: kube-scheduler
+    daemon-reload: true
+    state: restarted

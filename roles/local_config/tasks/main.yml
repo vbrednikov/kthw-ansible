@@ -1,0 +1,31 @@
+---
+- name: remove "{{ pki_dir }}" if exists
+  file:
+    path: "{{ pki_dir }}"
+    state: absent
+
+- name: create "{{ pki_dir }}" dir
+  file:
+    path: "{{ pki_dir }}"
+    state: directory
+
+- name: Prepare cfssl configs
+  tags: pki
+  include_tasks: 04_certificate_authority.yml
+
+- name: Prepare kubernetes configuration files
+  tags: kubeconfig
+  include_tasks: 05_kubernetes_configuration_files.yml
+
+
+- name: Prepare encrypton config
+  tags: data_encryption_keys
+  include_tasks: 06_data_encryption_keys.yml
+
+- name: Configure kubectl for remote access
+  tags: config_kubectl
+  include_tasks: 10_config_kubectl.yml
+
+- name: Provisioning Pod Network Routes
+  tags: pod_routes
+  include_tasks: 11_pod_network_routes.yml

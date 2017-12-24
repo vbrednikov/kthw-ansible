@@ -1,0 +1,68 @@
+---
+- set_fact:
+    controller_list: []
+
+- vars:
+    ip:
+      - "{{ 'https://%s:2379' | format(hostvars[item].gce_private_ip) }}"
+  set_fact:
+    controller_list: "{{ controller_list }} + {{ ip }}"
+  with_items:
+    - "{{ groups.tag_controller }}"
+
+- become: yes
+  become_user: root
+  vars:
+    controllers_list: "{{ controller_list | join(',') | replace(' ','') }}"
+    internal_ip: "{{ gce_private_ip }}"
+  template:
+    src: kube-apiserver.service.j2
+    dest: /etc/systemd/system/kube-apiserver.service
+    group: 0
+    owner: 0
+    mode: 644
+  notify: restart apiserver
+
+- name: Configure the Kubernetes Controller Manager
+  become: yes
+  become_user: root
+  template:
+    src: kube-controller-manager.service.j2
+    dest: /etc/systemd/system/kube-controller-manager.service
+    group: 0
+    owner: 0
+    mode: 644
+  notify: restart controller manager
+
+- name: Configure the Kubernetes Scheduler
+  become: yes
+  become_user: root
+  template:
+    src: kube-scheduler.service.j2
+    dest: /etc/systemd/system/kube-scheduler.service
+    group: 0
+    owner: 0
+    mode: 644
+  notify: restart scheduler
+
+- name: Enable and start services
+  tags: systemd_config
+  become: true
+  become_user: root
+  systemd: name="{{ item }}" enabled=yes state=started
+  with_items:
+    - kube-apiserver
+    - kube-controller-manager
+    - kube-scheduler
+
+- name: Wait for apiserver to start
+  tags: systemd_config
+  shell: kubectl get componentstatuses
+  register: kubectl_componentstatuses
+  until: kubectl_componentstatuses.rc == 0
+  retries: 5
+  delay: 2
+
+- name: Display component statuses
+  tags: systemd_config
+  debug: msg="{{ kubectl_componentstatuses.stdout_lines }}"

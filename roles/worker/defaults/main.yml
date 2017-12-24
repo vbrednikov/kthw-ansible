@@ -1,0 +1,3 @@
+---
+# defaults file for worker
+pki_dir: ".pki"

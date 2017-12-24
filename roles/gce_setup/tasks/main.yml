@@ -1,0 +1,22 @@
+---
+
+- name: Configure GCE network
+  import_tasks: gce_network.yml
+
+- name: Create controllers instances
+  import_tasks: gce_controllers.yml
+
+- name: Create worker instances
+  import_tasks: gce_workers.yml
+
+
+- name: show vars
+  debug: msg="{{ controllers.instance_names | join(',') }}"
+
+- name: Wait for SSH to come up on all hosts
+  wait_for: "host={{ item }} port=22 delay=3 timeout=60"
+  with_items:
+    - "{{ groups.all }}"
+
+- name: Create Load balancer
+  import_tasks: gce_lb.yml

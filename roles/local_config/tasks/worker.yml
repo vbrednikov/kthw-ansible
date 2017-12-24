@@ -1,0 +1,32 @@
+---
+# - name: debug
+#   debug:
+#     msg: "IP for {{ worker_name }}: {{ item.instance_data[0].private_ip }}"
+
+- name: prepare worker certs requests
+  template:
+    src: worker-csr.json.j2
+    dest: "{{ pki_dir }}/{{ worker_name }}-csr.json"
+
+# cfssl gencert \
+#   -ca=ca.pem \
+#   -ca-key=ca-key.pem \
+#   -config=ca-config.json \
+#   -hostname=${instance},${EXTERNAL_IP},${INTERNAL_IP} \
+#   -profile=kubernetes \
+#   ${instance}-csr.json | cfssljson -bare ${instance}
+# done
+
+- name: generate worker certs and private keys
+  shell: |
+    cfssl gencert \
+      -ca=ca.pem \
+      -ca-key=ca-key.pem \
+      -config=ca-config.json \
+      -hostname={{ worker_name }},{{ worker_public_ip }},{{ worker_private_ip }} \
+      -profile=kubernetes \
+      {{ worker_name }}-csr.json | cfssljson -bare {{ worker_name }}
+  args:
+    chdir: "{{ pki_dir }}"
+    creates: "{{ worker_name }}.pem"
+

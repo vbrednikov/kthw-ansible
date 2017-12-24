@@ -1,0 +1,12 @@
+---
+- name: generate random string
+  shell: "head -c 32 /dev/urandom | base64"
+  register: urandom
+
+- set_fact:
+    encryption_key: "{{ urandom.stdout }}"
+
+- name: create encryption config
+  template:
+    src: "encryption-config.yaml.j2"
+    dest: "{{ pki_dir }}/encryption-config.yaml"

@@ -1,0 +1,27 @@
+---
+# tasks file for controller
+- name: upload certs and configs
+  tags: upload_files
+  copy:
+    src: ".pki/{{ item }}"
+    dest: ~/
+  with_items:
+    - ca-key.pem
+
+
+- name: bootstrap etcd cluster
+  include_tasks: 07_bootstrap_etcd.yml
+
+- name: bootstrap the kubernetes control plane
+  tags: plane
+  include_tasks: 08_k8s_plane.yml
+
+- name: install services
+  tags: systemd
+  include_tasks: kube_services.yml
+
+
+- name: rbac
+  tags: rbac
+  run_once: true
+  include_tasks: rbac.yml

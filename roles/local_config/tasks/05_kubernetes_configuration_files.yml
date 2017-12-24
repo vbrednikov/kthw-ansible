@@ -1,0 +1,58 @@
+---
+
+- shell: |
+    gcloud compute addresses describe kubernetes-the-hard-way \
+    --region $(gcloud config get-value compute/region) \
+    --format 'value(address)'
+  register: eip_shell
+
+- set_fact:
+    gce_eip: "{{ eip_shell.stdout_lines[0] }}"
+
+- debug:
+    msg: "{{ gce_eip }}"
+
+- name: Generate kube-proxy.kubeconfig
+  shell: |
+    kubectl config set-cluster kubernetes-the-hard-way \
+      --certificate-authority=ca.pem \
+      --embed-certs=true \
+      --server="https://{{ gce_eip }}:6443" \
+      --kubeconfig=kube-proxy.kubeconfig && \
+    kubectl config set-credentials kube-proxy \
+      --client-certificate=kube-proxy.pem \
+      --client-key=kube-proxy-key.pem \
+      --embed-certs=true \
+      --kubeconfig=kube-proxy.kubeconfig && \
+    kubectl config set-context default \
+      --cluster=kubernetes-the-hard-way \
+      --user=kube-proxy \
+      --kubeconfig=kube-proxy.kubeconfig && \
+    kubectl config use-context default --kubeconfig=kube-proxy.kubeconfig
+  args:
+    chdir: .pki
+    creates: "kube-proxy.kubeconfig"
+
+- name: generate worker .kubeconfigs
+  shell: |
+    kubectl config set-cluster kubernetes-the-hard-way \
+      --certificate-authority=ca.pem \
+      --embed-certs=true \
+      --server="https://{{ gce_eip }}:6443" \
+      --kubeconfig="{{ item }}.kubeconfig" && \
+    kubectl config set-credentials "system:node:{{ item }}" \
+      --client-certificate="{{ item }}.pem" \
+      --client-key="{{ item }}-key.pem" \
+      --embed-certs=true \
+      --kubeconfig="{{ item }}.kubeconfig" && \
+    kubectl config set-context default \
+      --cluster=kubernetes-the-hard-way \
+      --user="system:node:{{ item }}" \
+      --kubeconfig="{{ item }}.kubeconfig" && \
+    kubectl config use-context default \
+      --kubeconfig="{{ item }}.kubeconfig"
+  args:
+    chdir: .pki
+    creates: "{{ item }}.kubeconfig"
+  with_items:
+    - "{{ groups.tag_worker }}"
