@@ -10,7 +10,8 @@
   with_items:
     - "{{ groups.tag_controller }}"
 
-- become: yes
+- name: Install systemd kube-apiserver.service
+  become: yes
   become_user: root
   vars:
     controllers_list: "{{ controller_list | join(',') | replace(' ','') }}"
